@@ -5,10 +5,9 @@ import {
 } from 'recharts';
 import { 
   LayoutDashboard, Flame, BookOpen, Clock, Calendar, 
-  Plus, Trash2, Database, ShieldAlert, Check, Star 
+  Plus, Trash2, Database, ShieldAlert, Check, Star, LogIn, UserPlus, KeyRound, Mail, User, Menu, X
 } from 'lucide-react';
 
-// --- INITIAL MOCK DATA ---
 const initialHabits = [
   { id: 101, name: "Fajr & Morning Reflection (15 mins)", frequency: "DAILY", current: 6, longest: 14, checks: [false, true, true, true, true, true, true] },
   { id: 102, name: "Code Django REST / React FYP (1 hr)", frequency: "DAILY", current: 4, longest: 9, checks: [true, true, false, true, true, true, true] },
@@ -39,9 +38,18 @@ const initialTasks = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('Habit Tracker');
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  const [activeTab, setActiveTab] = useState('Analytics Dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Data States
+  // Auth Form State
+  const [username, setUsername] = useState('jali_abdullah');
+  const [email, setEmail] = useState('jali@oum.edu.my');
+  const [password, setPassword] = useState('••••••••••••');
+  const [authError, setAuthError] = useState(null);
+
+  // App Data States
   const [habits, setHabits] = useState(initialHabits);
   const [books, setBooks] = useState(initialBooks);
   const [studies, setStudies] = useState(initialStudies);
@@ -50,43 +58,65 @@ export default function App() {
   // Form Inputs
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitFreq, setNewHabitFreq] = useState('Daily Frequency');
-  
   const [newBookTitle, setNewBookTitle] = useState('');
   const [newBookTotal, setNewBookTotal] = useState('');
   const [newBookRead, setNewBookRead] = useState('');
-
   const [newStudySubject, setNewStudySubject] = useState('');
   const [newStudyDuration, setNewStudyDuration] = useState('');
-
   const [newTaskDesc, setNewTaskDesc] = useState('');
   const [newTaskType, setNewTaskType] = useState('Daily Goal');
   const [plannerFilter, setPlannerFilter] = useState('All');
-
-  // Test Case Notification / Banner State
   const [testAlert, setTestAlert] = useState(null);
+
+  // --- AUTH HANDLERS ---
+  const handleLoginSubmit = (e) => {
+    e.preventDefault();
+    if (!username || !password) {
+      setAuthError('TC03 Error: Username and password are required.');
+      return;
+    }
+    setAuthError(null);
+    setIsAuthenticated(true);
+  };
+
+  const handleRegisterSubmit = (e) => {
+    e.preventDefault();
+    if (email === 'existing_user@oum.edu.my') {
+      setAuthError('TC02 Validation Error: Email address already registered (400 Bad Request)');
+      return;
+    }
+    setAuthError(null);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setAuthMode('login');
+    setAuthError(null);
+    setMobileMenuOpen(false);
+  };
 
   // --- ACTIONS ---
   const handleAddHabit = (e) => {
     e.preventDefault();
     if (!newHabitName.trim()) return;
-    const newEntry = {
+    setHabits([...habits, {
       id: Date.now() % 1000,
       name: newHabitName,
       frequency: newHabitFreq.toUpperCase().includes('WEEKLY') ? 'WEEKLY' : 'DAILY',
       current: 1,
       longest: 1,
       checks: [false, false, false, false, false, false, true]
-    };
-    setHabits([...habits, newEntry]);
+    }]);
     setNewHabitName('');
   };
 
   const toggleHabitDay = (habitId, dayIndex) => {
     setHabits(habits.map(h => {
       if (h.id === habitId) {
-        const updatedChecks = [...h.checks];
-        updatedChecks[dayIndex] = !updatedChecks[dayIndex];
-        return { ...h, checks: updatedChecks };
+        const updated = [...h.checks];
+        updated[dayIndex] = !updated[dayIndex];
+        return { ...h, checks: updated };
       }
       return h;
     }));
@@ -99,13 +129,11 @@ export default function App() {
     if (!newBookTitle.trim()) return;
     const total = parseInt(newBookTotal) || 100;
     const read = parseInt(newBookRead) || 0;
-    
     if (read > total) {
       setTestAlert('TC08 Error: Pages read cannot be greater than total book pages!');
       return;
     }
-    
-    const newEntry = {
+    setBooks([...books, {
       id: Date.now() % 1000,
       title: newBookTitle,
       author: "Independent Study",
@@ -113,12 +141,8 @@ export default function App() {
       read,
       status: read >= total ? "FINISHED" : (read > 0 ? "IN PROGRESS" : "TO READ"),
       rating: read >= total ? 5 : 0
-    };
-    setBooks([...books, newEntry]);
-    setNewBookTitle('');
-    setNewBookTotal('');
-    setNewBookRead('');
-    setTestAlert(null);
+    }]);
+    setNewBookTitle(''); setNewBookTotal(''); setNewBookRead(''); setTestAlert(null);
   };
 
   const addPagesToBook = (bookId, amount = 15) => {
@@ -146,22 +170,17 @@ export default function App() {
     e.preventDefault();
     if (!newStudySubject.trim()) return;
     const duration = parseInt(newStudyDuration);
-    
     if (duration <= 0 || isNaN(duration)) {
       setTestAlert('TC11 Error: Study duration must be a positive integer greater than 0!');
       return;
     }
-
-    const newEntry = {
+    setStudies([{
       id: (studies.length > 0 ? Math.max(...studies.map(s => s.id)) + 1 : 501),
       subject: newStudySubject,
       duration: duration,
       date: new Date().toISOString().split('T')[0]
-    };
-    setStudies([newEntry, ...studies]);
-    setNewStudySubject('');
-    setNewStudyDuration('');
-    setTestAlert(null);
+    }, ...studies]);
+    setNewStudySubject(''); setNewStudyDuration(''); setTestAlert(null);
   };
 
   const handleAddTask = (e) => {
@@ -170,15 +189,13 @@ export default function App() {
     const typeClean = newTaskType.toUpperCase().includes('WEEKLY') 
       ? 'WEEKLY' 
       : (newTaskType.toUpperCase().includes('MONTHLY') ? 'MONTHLY' : 'DAILY');
-      
-    const newEntry = {
+    setTasks([...tasks, {
       id: Date.now() % 1000,
       title: newTaskDesc,
       type: typeClean,
       due: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
       status: "To Do"
-    };
-    setTasks([...tasks, newEntry]);
+    }]);
     setNewTaskDesc('');
   };
 
@@ -195,7 +212,7 @@ export default function App() {
 
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
 
-  // --- ANALYTICS DATA CALCULATIONS ---
+  // --- CHARTS PREP ---
   const habitChartData = habits.map(h => ({
     name: h.name.length > 18 ? h.name.substring(0, 18) + '...' : h.name,
     Current: h.current,
@@ -218,17 +235,176 @@ export default function App() {
     { name: 'Completed', value: taskStatusCounts['Completed'] || 0 }
   ];
   const PIE_COLORS = ['#F59E0B', '#2563EB', '#10B981'];
-
   const daysHeader = ['THU 15', 'FRI 16', 'SAT 17', 'SUN 18', 'MON 19', 'TUE 20', 'TODAY'];
 
+  const navigationTabs = [
+    { id: 'Analytics Dashboard', icon: <LayoutDashboard size={18} /> },
+    { id: 'Habit Tracker', icon: <Flame size={18} /> },
+    { id: 'Reading Goals', icon: <BookOpen size={18} /> },
+    { id: 'Study Session Log', icon: <Clock size={18} /> },
+    { id: 'Goal Planner', icon: <Calendar size={18} /> }
+  ];
+
+  // ========================================================
+  // AUTH VIEW (FIGURE 4.1 & 4.2)
+  // ========================================================
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4 antialiased selection:bg-[#F5B82E]">
+        <div className="w-full max-w-md bg-white border-2 border-black rounded-2xl shadow-[6px_6px_0px_#000000] p-6 sm:p-8 space-y-6">
+          
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center justify-center bg-[#2563EB] text-white w-14 h-14 rounded-2xl border-2 border-black shadow-[3px_3px_0px_#000000] font-black text-2xl mb-1">
+              PG
+            </div>
+            <h1 className="text-2xl font-black tracking-tight">GrowthTracker</h1>
+            <p className="text-xs font-semibold text-gray-500 font-mono">
+              Django REST + React JWT Security (FR1, FR2)
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 border-2 border-black rounded-xl overflow-hidden bg-[#FAF8F5] p-1 font-bold text-xs gap-1">
+            <button
+              onClick={() => { setAuthMode('login'); setAuthError(null); }}
+              className={`py-2 rounded-lg border-2 transition-all ${
+                authMode === 'login' 
+                  ? 'bg-[#F5B82E] border-black shadow-[2px_2px_0px_#000000] text-black' 
+                  : 'border-transparent text-gray-600 hover:text-black'
+              }`}
+            >
+              Sign In (Fig 4.2)
+            </button>
+            <button
+              onClick={() => { setAuthMode('register'); setAuthError(null); }}
+              className={`py-2 rounded-lg border-2 transition-all ${
+                authMode === 'register' 
+                  ? 'bg-[#F5B82E] border-black shadow-[2px_2px_0px_#000000] text-black' 
+                  : 'border-transparent text-gray-600 hover:text-black'
+              }`}
+            >
+              Register (Fig 4.1)
+            </button>
+          </div>
+
+          {authError && (
+            <div className="p-3 bg-[#FEE2E2] border-2 border-black rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
+              <ShieldAlert size={16} className="shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <form onSubmit={authMode === 'login' ? handleLoginSubmit : handleRegisterSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono font-bold mb-1 uppercase">Username</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  className="w-full pl-9 pr-3 py-2.5 border-2 border-black rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-[#2563EB]"
+                />
+                <User size={16} className="absolute left-3 top-3.5 text-gray-400" />
+              </div>
+            </div>
+
+            {authMode === 'register' && (
+              <div>
+                <label className="block text-xs font-mono font-bold mb-1 uppercase">Email Address</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@oum.edu.my"
+                    className="w-full pl-9 pr-3 py-2.5 border-2 border-black rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  />
+                  <Mail size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-mono font-bold mb-1 uppercase">Password</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full pl-9 pr-3 py-2.5 border-2 border-black rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-[#2563EB]"
+                />
+                <KeyRound size={16} className="absolute left-3 top-3.5 text-gray-400" />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#F5B82E] border-2 border-black rounded-xl font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327] flex items-center justify-center gap-2 mt-2"
+            >
+              {authMode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
+              <span>{authMode === 'login' ? 'Authenticate & Obtain JWT (TC03)' : 'Create Student Account (TC01)'}</span>
+            </button>
+          </form>
+
+          {authMode === 'register' && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('existing_user@oum.edu.my');
+                setAuthError('TC02 Error: 400 Bad Request — A user with that email already exists.');
+              }}
+              className="w-full text-center text-[11px] font-mono font-bold text-gray-500 hover:text-black underline"
+            >
+              [Simulate TC02 Duplicate Email Error]
+            </button>
+          )}
+
+          <div className="pt-2 border-t-2 border-gray-100 text-center font-mono text-[10px] text-gray-400">
+            PBKDF2 Password Hash • 3NF Isolated Multi-User System
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========================================================
+  // MAIN APP VIEW (FULLY RESPONSIVE DESKTOP + MOBILE)
+  // ========================================================
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-black font-sans flex antialiased select-none">
+    <div className="min-h-screen bg-[#FAF8F5] text-black font-sans flex flex-col md:flex-row antialiased select-none">
       
-      {/* SIDEBAR */}
-      <aside className="w-[260px] bg-[#FAF8F5] border-r-2 border-black flex flex-col justify-between shrink-0 h-screen sticky top-0 overflow-y-auto">
+      {/* MOBILE TOP NAVIGATION HEADER (Visible only on screens < 768px) */}
+      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b-2 border-black sticky top-0 z-40 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-[#2563EB] text-white w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm border-2 border-black shadow-[2px_2px_0px_#000000]">
+            PG
+          </div>
+          <div>
+            <h1 className="font-extrabold text-sm leading-none">GrowthTracker</h1>
+            <p className="text-[10px] text-gray-500 font-mono">React + Django REST</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-black rounded-lg bg-[#F5B82E] font-bold text-xs shadow-[2px_2px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5"
+        >
+          {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
+          <span>{mobileMenuOpen ? 'Close' : 'Menu'}</span>
+        </button>
+      </header>
+
+      {/* SIDEBAR: Drawer on Mobile (<768px), Sticky Column on Desktop (>=768px) */}
+      <aside className={`
+        ${mobileMenuOpen ? 'flex' : 'hidden'} 
+        md:flex w-full md:w-[260px] bg-[#FAF8F5] md:border-r-2 border-b-2 md:border-b-0 border-black flex-col justify-between shrink-0 md:h-screen md:sticky top-0 z-30 overflow-y-auto
+      `}>
         <div>
-          {/* Brand Header */}
-          <div className="p-5 flex items-center gap-3 border-b-2 border-black">
+          {/* Brand Header (Desktop) */}
+          <div className="hidden md:flex p-5 items-center gap-3 border-b-2 border-black">
             <div className="bg-[#2563EB] text-white w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-lg border-2 border-black shadow-[2px_2px_0px_#000000]">
               PG
             </div>
@@ -240,18 +416,16 @@ export default function App() {
 
           {/* Navigation Links */}
           <nav className="p-3 space-y-2">
-            {[
-              { id: 'Analytics Dashboard', icon: <LayoutDashboard size={18} /> },
-              { id: 'Habit Tracker', icon: <Flame size={18} /> },
-              { id: 'Reading Goals', icon: <BookOpen size={18} /> },
-              { id: 'Study Session Log', icon: <Clock size={18} /> },
-              { id: 'Goal Planner', icon: <Calendar size={18} /> }
-            ].map(tab => {
+            {navigationTabs.map(tab => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setTestAlert(null); }}
+                  onClick={() => { 
+                    setActiveTab(tab.id); 
+                    setTestAlert(null); 
+                    setMobileMenuOpen(false); // Close mobile drawer when an item is tapped
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-bold text-sm border-2 transition-all ${
                     isActive 
                       ? 'bg-[#F5B82E] border-black shadow-[3px_3px_0px_#000000] text-black' 
@@ -288,22 +462,25 @@ export default function App() {
               <span className="text-gray-500">Logged in as:</span>
               <span className="font-bold">jali_abdullah</span>
             </div>
-            <button className="w-full py-2 bg-[#FDE8E8] text-[#EF4444] border-2 border-[#EF4444] rounded-lg font-bold text-xs hover:bg-[#FEE2E2]">
+            <button 
+              onClick={handleLogout}
+              className="w-full py-2 bg-[#FDE8E8] text-[#EF4444] border-2 border-[#EF4444] rounded-lg font-bold text-xs hover:bg-[#FEE2E2]"
+            >
               [→ Logout (Clear JWT)
             </button>
           </div>
         </div>
       </aside>
 
-      {/* MAIN VIEWPORT */}
-      <main className="flex-1 h-screen overflow-y-auto bg-white flex flex-col p-6 md:p-8">
+      {/* MAIN VIEWPORT (Clean padding on mobile, no horizontal overflow) */}
+      <main className="flex-1 min-w-0 md:h-screen md:overflow-y-auto bg-white flex flex-col p-4 sm:p-6 md:p-8">
         <div className="max-w-6xl mx-auto w-full space-y-6">
 
-          {/* Test Case Alert Banner (If triggered) */}
+          {/* Alert Banner */}
           {testAlert && (
             <div className="p-4 bg-[#FEE2E2] border-2 border-black rounded-xl shadow-[3px_3px_0px_#000000] flex justify-between items-center">
               <div className="flex items-center gap-3 text-sm font-bold text-red-700">
-                <ShieldAlert size={20} />
+                <ShieldAlert size={20} className="shrink-0" />
                 <span>{testAlert}</span>
               </div>
               <button onClick={() => setTestAlert(null)} className="text-xs font-bold px-2 py-1 bg-white border border-black rounded">
@@ -312,13 +489,11 @@ export default function App() {
             </div>
           )}
 
-          {/* ========================================================
-              TAB 1: ANALYTICS DASHBOARD
-             ======================================================== */}
+          {/* TAB 1: ANALYTICS DASHBOARD */}
           {activeTab === 'Analytics Dashboard' && (
             <div className="space-y-6">
-              {/* KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* 4 KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border-2 border-black rounded-xl p-5 shadow-[4px_4px_0px_#000000]">
                   <div className="flex justify-between text-xs font-bold text-gray-500 mb-2">
                     <span>ACTIVE HABITS</span>
@@ -368,21 +543,21 @@ export default function App() {
 
               {/* Middle Row Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
-                  <div className="flex justify-between items-start mb-4">
+                <div className="lg:col-span-2 bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000]">
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                     <div>
                       <h2 className="font-bold text-base">Habit Consistency: Current vs Longest Streak (Days)</h2>
                       <p className="text-xs text-gray-500">Lally et al. (2010): Missing a single day resets current streak without erasing historical longest streak</p>
                     </div>
-                    <span className="bg-[#CFE8FC] border-[1.5px] border-black text-xs font-mono font-bold px-2 py-0.5 rounded">
+                    <span className="bg-[#CFE8FC] border-[1.5px] border-black text-xs font-mono font-bold px-2 py-0.5 rounded shrink-0">
                       GET /api/dashboard/
                     </span>
                   </div>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={habitChartData} margin={{ top: 20, right: 20, left: -20, bottom: 5 }}>
+                      <BarChart data={habitChartData} margin={{ top: 20, right: 10, left: -25, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip contentStyle={{ border: '2px solid black', borderRadius: '8px', boxShadow: '3px 3px 0 0 black' }} />
                         <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
@@ -393,13 +568,13 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000] flex flex-col">
+                <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000] flex flex-col">
                   <h2 className="font-bold text-base mb-1">Planner Goals Breakdown</h2>
                   <p className="text-xs text-gray-500 mb-2">To Do vs In Progress vs Completed</p>
                   <div className="flex-1 min-h-[190px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value">
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value">
                           {pieData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="black" strokeWidth={2} />
                           ))}
@@ -411,23 +586,23 @@ export default function App() {
                   <div className="flex justify-center gap-3 text-xs font-bold mt-2">
                     <span className="flex items-center gap-1"><div className="w-3 h-3 bg-[#F59E0B] border border-black"></div> To Do</span>
                     <span className="flex items-center gap-1"><div className="w-3 h-3 bg-[#2563EB] border border-black"></div> In Progress</span>
-                    <span className="flex items-center gap-1"><div className="w-3 h-3 bg-[#10B981] border border-black"></div> Completed</span>
+                    <span className="flex items-center gap-1"><div className="w-3 h-3 bg-[#10B981] border border-black"></div> Done</span>
                   </div>
                 </div>
               </div>
 
               {/* Bottom Chart */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000]">
                 <h2 className="font-bold text-base">Study & Skill Minutes by Subject</h2>
                 <p className="text-xs text-gray-500 mb-4">Aggregated from StudySession table for jali_abdullah</p>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart layout="vertical" data={studyChartData} margin={{ top: 10, right: 30, left: 60, bottom: 5 }}>
+                    <BarChart layout="vertical" data={studyChartData} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={140} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
                       <Tooltip contentStyle={{ border: '2px solid black', borderRadius: '8px', boxShadow: '3px 3px 0 0 black' }} />
-                      <Bar dataKey="Minutes" fill="#2563EB" radius={[0, 4, 4, 0]} barSize={26} />
+                      <Bar dataKey="Minutes" fill="#2563EB" radius={[0, 4, 4, 0]} barSize={24} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -435,28 +610,25 @@ export default function App() {
             </div>
           )}
 
-          {/* ========================================================
-              TAB 2: HABIT TRACKER (Figure 4.3)
-             ======================================================== */}
+          {/* TAB 2: HABIT TRACKER */}
           {activeTab === 'Habit Tracker' && (
             <div className="space-y-6">
-              {/* Form Card */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
-                <div className="flex justify-between items-start mb-4">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000]">
+                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                   <div>
                     <h2 className="font-bold text-lg">Habit & Streak Tracker (FR3 — Figure 4.3)</h2>
                     <p className="text-xs text-gray-500">Click any day in the 7-day window to toggle HabitLog entries and see real-time Current vs Longest streak calculation (TC07).</p>
                   </div>
                   <button 
                     onClick={() => setTestAlert('TC06 Passed: Cross-user query isolated! Accessing User B habits returned 404 Not Found.')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-black rounded-lg text-xs font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#000000]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-black rounded-lg text-xs font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#000000] shrink-0"
                   >
                     <ShieldAlert size={14} className="text-red-500" />
-                    Simulate TC06 Cross-User Access Test
+                    Simulate TC06 Test
                   </button>
                 </div>
 
-                <form onSubmit={handleAddHabit} className="flex gap-3">
+                <form onSubmit={handleAddHabit} className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     placeholder="New habit name (e.g., Read 10 pages after Maghrib)..."
@@ -474,24 +646,23 @@ export default function App() {
                   </select>
                   <button 
                     type="submit"
-                    className="flex items-center gap-1.5 px-6 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
+                    className="flex items-center justify-center gap-1.5 px-6 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
                   >
                     <Plus size={16} /> Add Habit
                   </button>
                 </form>
               </div>
 
-              {/* Table Card */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000] overflow-x-auto">
-                <table className="w-full text-left">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000] overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
                   <thead>
                     <tr className="border-b-2 border-black text-xs font-extrabold uppercase tracking-wider text-gray-700">
                       <th className="pb-3 w-1/3">HABIT NAME & FREQUENCY</th>
                       {daysHeader.map((d, i) => (
                         <th key={i} className="pb-3 text-center">{d}</th>
                       ))}
-                      <th className="pb-3 text-center">CURRENT STREAK</th>
-                      <th className="pb-3 text-center">LONGEST STREAK</th>
+                      <th className="pb-3 text-center">CURRENT</th>
+                      <th className="pb-3 text-center">LONGEST</th>
                       <th className="pb-3 text-center">ACTION</th>
                     </tr>
                   </thead>
@@ -540,33 +711,30 @@ export default function App() {
             </div>
           )}
 
-          {/* ========================================================
-              TAB 3: READING GOALS (Figure 4.4)
-             ======================================================== */}
+          {/* TAB 3: READING GOALS */}
           {activeTab === 'Reading Goals' && (
             <div className="space-y-6">
-              {/* Form Card */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
-                <div className="flex justify-between items-start mb-4">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000]">
+                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                   <div>
                     <h2 className="font-bold text-lg">Reading Goals & Book Tracker (FR4 — Figure 4.4)</h2>
-                    <p className="text-xs text-gray-500">Tracks total_pages, pages_read, status (To Read / In Progress / Finished), and 1-5 star ratings.</p>
+                    <p className="text-xs text-gray-500">Tracks total_pages, pages_read, status, and 1-5 star ratings.</p>
                   </div>
                   <button 
                     onClick={() => setTestAlert('TC08 Triggered: Serializer raised ValidationError: {"pages_read": ["Pages read cannot exceed total pages (400 > 300)."]}')}
-                    className="px-3 py-1.5 border-2 border-black rounded-lg text-xs font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#000000]"
+                    className="px-3 py-1.5 border-2 border-black rounded-lg text-xs font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#000000] shrink-0"
                   >
-                    Trigger TC08 Page Validation Error
+                    Trigger TC08 Error
                   </button>
                 </div>
 
-                <form onSubmit={handleAddBook} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <form onSubmit={handleAddBook} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <input
                     type="text"
                     placeholder="Book Title & Author..."
                     value={newBookTitle}
                     onChange={(e) => setNewBookTitle(e.target.value)}
-                    className="md:col-span-2 px-4 py-2.5 border-2 border-black rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    className="sm:col-span-2 px-4 py-2.5 border-2 border-black rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-[#2563EB]"
                   />
                   <input
                     type="number"
@@ -587,13 +755,12 @@ export default function App() {
                       type="submit"
                       className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
                     >
-                      <Plus size={16} /> Add Book
+                      <Plus size={16} /> Add
                     </button>
                   </div>
                 </form>
               </div>
 
-              {/* 2x2 Books Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {books.map(b => {
                   const percent = Math.round((b.read / b.total) * 100) || 0;
@@ -621,7 +788,6 @@ export default function App() {
                           <span>{b.read} / {b.total} pages</span>
                           <span>{percent}%</span>
                         </div>
-                        {/* Progress Bar */}
                         <div className="w-full h-3 bg-gray-100 border-2 border-black rounded-full overflow-hidden mb-4">
                           <div 
                             className="h-full bg-[#2563EB] transition-all" 
@@ -630,7 +796,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                      <div className="flex flex-wrap justify-between items-center pt-2 border-t border-gray-100 gap-2">
                         <div className="flex gap-2">
                           <button
                             onClick={() => addPagesToBook(b.id, 15)}
@@ -642,7 +808,7 @@ export default function App() {
                             onClick={() => markBookFinished(b.id)}
                             className="px-3 py-1 text-xs font-bold border-2 border-black rounded-full bg-white hover:bg-gray-50 shadow-[2px_2px_0px_#000000]"
                           >
-                            Mark Finished (TC09)
+                            Mark Finished
                           </button>
                         </div>
                         <button 
@@ -659,27 +825,24 @@ export default function App() {
             </div>
           )}
 
-          {/* ========================================================
-              TAB 4: STUDY SESSION LOG (Figure 4.5)
-             ======================================================== */}
+          {/* TAB 4: STUDY SESSION LOG */}
           {activeTab === 'Study Session Log' && (
             <div className="space-y-6">
-              {/* Form Card */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
-                <div className="flex justify-between items-start mb-4">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000]">
+                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                   <div>
                     <h2 className="font-bold text-lg">Study & Skill Session Logger (FR5 — Figure 4.5)</h2>
                     <p className="text-xs text-gray-500">Log focused study hours by subject, duration_minutes, and session_date.</p>
                   </div>
                   <button 
                     onClick={() => setTestAlert('TC11 Triggered: Backend validator failed: duration_minutes must be positive integer (> 0).')}
-                    className="px-3 py-1.5 border-2 border-black rounded-lg text-xs font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#000000]"
+                    className="px-3 py-1.5 border-2 border-black rounded-lg text-xs font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#000000] shrink-0"
                   >
-                    Trigger TC11 Negative Duration Error
+                    Trigger TC11 Error
                   </button>
                 </div>
 
-                <form onSubmit={handleAddStudy} className="flex gap-3">
+                <form onSubmit={handleAddStudy} className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     placeholder="Subject or Skill (e.g., Django ORM)..."
@@ -692,20 +855,19 @@ export default function App() {
                     placeholder="Duration (minutes)"
                     value={newStudyDuration}
                     onChange={(e) => setNewStudyDuration(e.target.value)}
-                    className="w-48 px-4 py-2.5 border-2 border-black rounded-lg text-sm font-medium outline-none"
+                    className="sm:w-48 px-4 py-2.5 border-2 border-black rounded-lg text-sm font-medium outline-none"
                   />
                   <button 
                     type="submit"
-                    className="flex items-center gap-1.5 px-6 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
+                    className="flex items-center justify-center gap-1.5 px-6 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
                   >
                     <Plus size={16} /> Log Session
                   </button>
                 </form>
               </div>
 
-              {/* Table Card */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
-                <table className="w-full text-left">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000] overflow-x-auto">
+                <table className="w-full text-left min-w-[500px]">
                   <thead>
                     <tr className="border-b-2 border-black text-xs font-extrabold uppercase tracking-wider text-gray-700">
                       <th className="pb-3">SESSION ID</th>
@@ -733,20 +895,16 @@ export default function App() {
             </div>
           )}
 
-          {/* ========================================================
-              TAB 5: GOAL PLANNER (Figure 4.6)
-             ======================================================== */}
+          {/* TAB 5: GOAL PLANNER */}
           {activeTab === 'Goal Planner' && (
             <div className="space-y-6">
-              {/* Form Card */}
-              <div className="bg-white border-2 border-black rounded-xl p-6 shadow-[4px_4px_0px_#000000]">
-                <div className="flex justify-between items-start mb-4">
+              <div className="bg-white border-2 border-black rounded-xl p-4 sm:p-6 shadow-[4px_4px_0px_#000000]">
+                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                   <div>
                     <h2 className="font-bold text-lg">Goal & Task Planner (FR6 — Figure 4.6)</h2>
                     <p className="text-xs text-gray-500">Organize daily, weekly, and monthly goals and cycle statuses between To Do, In Progress, and Completed (TC10).</p>
                   </div>
-                  {/* Filter Pills */}
-                  <div className="flex border-2 border-black rounded-lg overflow-hidden font-bold text-xs">
+                  <div className="flex border-2 border-black rounded-lg overflow-hidden font-bold text-xs shrink-0">
                     {['All', 'Daily', 'Weekly', 'Monthly'].map(f => (
                       <button
                         key={f}
@@ -761,7 +919,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <form onSubmit={handleAddTask} className="flex gap-3">
+                <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     placeholder="Goal description..."
@@ -780,14 +938,14 @@ export default function App() {
                   </select>
                   <button 
                     type="submit"
-                    className="flex items-center gap-1.5 px-6 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
+                    className="flex items-center justify-center gap-1.5 px-6 py-2.5 bg-[#F5B82E] border-2 border-black rounded-lg font-bold text-sm shadow-[3px_3px_0px_#000000] hover:bg-[#eab327]"
                   >
                     <Plus size={16} /> Add Goal
                   </button>
                 </form>
               </div>
 
-              {/* Kanban 3 Columns */}
+              {/* Responsive 3-Column Kanban */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {['To Do', 'In Progress', 'Completed'].map(colStatus => {
                   const columnTasks = tasks
